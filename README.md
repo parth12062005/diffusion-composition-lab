@@ -24,8 +24,9 @@ The full two-person script is dist/speech_draft.md.
 
 - Change each Gaussian mean and variance.
 - Move the noise slider or animate it.
-- Move x with the probe slider or click and drag a plot.
-- Compare expert scores, their combination, and the required reverse score.
+- Move x with the probe slider or click and drag the density plot.
+- Compare the combined and correct scores across the full noise range.
+- Click the score timeline to inspect intermediate times at the same x.
 - Switch between AND and A AND NOT B, with an alpha slider.
 - Observe warnings for ratios with no finite integral.
 - Run, pause, reset or single-step the Langevin particles.

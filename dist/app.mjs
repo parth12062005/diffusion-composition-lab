@@ -8,7 +8,7 @@ const fmt = (v,n=3)=>Number.isFinite(v)?v.toFixed(n):'Undefined';
 let noisePlaying = false, samplePlaying = false, noiseDirection = 1, lastFrame = 0;
 let particles = [], sampleSteps = 0, random = seededRandom(814);
 
-function chart(canvas, xRange=[-7,7], yRange=[0,1]) {
+function chart(canvas, xRange=[-7,7], yRange=[0,1], options={}) {
   const rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
   const width = Math.max(260,rect.width), height = Math.max(180,rect.height);
   canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
@@ -22,8 +22,9 @@ function chart(canvas, xRange=[-7,7], yRange=[0,1]) {
     ctx.strokeStyle=palette.grid;ctx.beginPath();ctx.moveTo(bounds.left,py);ctx.lineTo(bounds.right,py);ctx.stroke();
     ctx.fillStyle=palette.muted;ctx.textAlign='right';ctx.fillText(Math.abs(y)<.0001?'0':Math.abs(y)<1?y.toFixed(2):y.toFixed(1),bounds.left-8,py+3);
   }
-  for(let x=Math.ceil(xRange[0]/2)*2;x<=xRange[1];x+=2){ctx.fillStyle=palette.muted;ctx.textAlign='center';ctx.fillText(x,X(x),height-7);}
-  ctx.fillStyle=palette.muted;ctx.textAlign='right';ctx.fillText('x',width-2,height-7);
+  const ticks=options.xTicks??Array.from({length:Math.floor(xRange[1]/2)-Math.ceil(xRange[0]/2)+1},(_,i)=>(Math.ceil(xRange[0]/2)+i)*2);
+  for(const x of ticks){ctx.fillStyle=palette.muted;ctx.textAlign='center';ctx.fillText(x,X(x),height-7);}
+  ctx.fillStyle=palette.muted;ctx.textAlign='right';ctx.fillText(options.xLabel??'x',width-2,height-7);
   return {ctx,width,height,bounds,X,Y,xRange,yRange};
 }
 function curve(c,fn,color,dashed=false,width=2.4){
@@ -42,11 +43,25 @@ function renderPlots(m){
   if(m.required)densities.push([x=>normal(x,m.required.mean,m.required.variance),palette.ink,true]);
   const peak=Math.max(...[m.noisyA,m.noisyB,m.current,m.required].filter(Boolean).map(g=>normal(g.mean,g.mean,g.variance)));
   const d=chart($('density-plot'),[-7,7],[0,peak*1.16]);densities.forEach(([fn,color,dash])=>curve(d,fn,color,dash));probe(d,state.x,densities);
-  const fA=x=>score(x,m.noisyA), fB=x=>score(x,m.noisyB), fC=x=>fA(x)+m.weight*fB(x);
-  const functions=[[fA,palette.teal],[fB,palette.coral],[fC,palette.violet]];
-  if(m.required)functions.push([x=>score(x,m.required),palette.ink,true]);
-  const limit=Math.max(4,Math.abs(fA(state.x))*1.25,Math.abs(fB(state.x))*1.25,Math.abs(fC(state.x))*1.25,m.required?Math.abs(score(state.x,m.required))*1.25:0);
-  const s=chart($('score-plot'),[-7,7],[-limit,limit]);functions.forEach(([fn,color,dash])=>curve(s,fn,color,dash));probe(s,state.x,functions);
+  renderScoreTimeline();
+}
+function renderScoreTimeline(){
+  const at=t=>model({...state,t});
+  const combined=t=>{const m=at(t);return score(state.x,m.noisyA)+m.weight*score(state.x,m.noisyB);};
+  const clean=at(0).clean;
+  const required=t=>score(state.x,at(t).required);
+  const functions=[[combined,palette.violet]];
+  if(clean)functions.push([required,palette.ink,true]);
+  const values=Array.from({length:101},(_,i)=>functions.map(([fn])=>fn(i/100))).flat();
+  const low=Math.min(0,...values),high=Math.max(0,...values),padding=Math.max(0.25,(high-low)*0.15);
+  const c=chart($('score-timeline'),[0,1],[low-padding,high+padding],{xTicks:[0,0.25,0.5,0.75,1],xLabel:''});
+  c.ctx.fillStyle='#7052b509';c.ctx.fillRect(c.X(state.t)-8,c.bounds.top,16,c.bounds.bottom-c.bounds.top);
+  functions.forEach(([fn,color,dash])=>curve(c,fn,color,dash));
+  for(const t of [0,0.25,0.5,0.75,1]){
+    for(const [fn,color] of functions){c.ctx.fillStyle=palette.paper;c.ctx.strokeStyle=color;c.ctx.lineWidth=1.5;c.ctx.beginPath();c.ctx.arc(c.X(t),c.Y(fn(t)),3,0,Math.PI*2);c.ctx.fill();c.ctx.stroke();}
+  }
+  probe(c,state.t,functions);
+  $('score-time-caption').textContent=`At the same x = ${fmt(state.x,2)}`;
 }
 function renderLab(){
   const m=model(state);
@@ -62,7 +77,7 @@ function renderLab(){
   $('route-title').textContent=state.mode==='and'?'Add noise, then multiply':'Add noise, then take the ratio';
   $('route-copy').textContent=state.mode==='and'?'Each expert learns its own noisy density. Adding their scores gives the score of their product at t.':'Subtracting alpha times B\'s noisy score gives the score of the ratio at t, provided it can be normalized.';
   const fA=score(state.x,m.noisyA),fB=score(state.x,m.noisyB);
-  $('score-A').textContent=fmt(fA);$('score-B').textContent=fmt(fB);$('score-combined').textContent=fmt(fA+m.weight*fB);
+  $('score-combined').textContent=fmt(fA+m.weight*fB);
   $('score-required').textContent=m.required?fmt(score(state.x,m.required)):'No clean target';
   $('required-moments').textContent=m.required?`Mean ${fmt(m.required.mean)} / variance ${fmt(m.required.variance)}`:'The clean ratio has no finite integral.';
   $('current-moments').textContent=m.current?`Mean ${fmt(m.current.mean)} / variance ${fmt(m.current.variance)}`:'This intermediate ratio has no finite integral.';
@@ -115,9 +130,9 @@ $('sample-play').addEventListener('click',()=>{stopNoise();samplePlaying=!sample
 $('sample-step').addEventListener('click',()=>{stopNoise();samplePlaying=false;updateSampleButton();advance();});
 $('sample-reset').addEventListener('click',()=>{samplePlaying=false;updateSampleButton();resetParticles();});
 $('step-size').addEventListener('input',()=>{samplePlaying=false;updateSampleButton();resetParticles();});
-for(const id of ['density-plot','score-plot']){
+for(const id of ['density-plot','score-timeline']){
   const c=$(id);let dragging=false;
-  const move=e=>{const r=c.getBoundingClientRect();state.x=Math.max(-7,Math.min(7,-7+(e.clientX-r.left-43)/(r.width-56)*14));renderLab();};
+  const move=e=>{const r=c.getBoundingClientRect(),fraction=Math.max(0,Math.min(1,(e.clientX-r.left-43)/(r.width-56)));if(id==='score-timeline'){state.t=fraction;changed();}else{state.x=-7+fraction*14;renderLab();}};
   c.addEventListener('pointerdown',e=>{dragging=true;c.setPointerCapture(e.pointerId);move(e);});
   c.addEventListener('pointermove',e=>{if(dragging)move(e);});c.addEventListener('pointerup',()=>dragging=false);c.addEventListener('pointercancel',()=>dragging=false);
 }
@@ -175,7 +190,7 @@ $('import-results').addEventListener('change',async e=>{
 const chapters=Array.from(document.querySelectorAll('.chapter'));
 const scripts={
  intro:'Krishiv: We study how to reuse diffusion experts after training. A learns zeros and ones, and B learns ones and sixes. We compare AND and A AND NOT B. First, the Gaussian lab lets us inspect the mathematical issue without neural network errors.',
- lab:'Krishiv: At a fixed noise level, move the probe point and read both expert scores. Their sum is the score of the product of noisy experts. The dashed curve instead comes from noising the clean product. In the board example, at t = 0.5 their variances are 0.5 and 0.875. Try unequal widths to see a changing product. NOT subtracts a scaled B score, but some ratios have no finite integral.',
+ lab:'Krishiv: Choose a probe point x. The score chart holds x fixed and shows scores across the entire noise range. Purple combines the noisy experts. The dashed curve is the correct reverse-diffusion score. Their intermediate values generally differ, although they agree at the clean endpoint. Move the noise slider or click the chart to inspect t. In the board example, at t = 0.5 the two density variances are 0.5 and 0.875. Try unequal widths to see a changing product. NOT subtracts a scaled B score, but some ratios have no finite integral.',
  sampling:'Krishiv: Here we hold t fixed. Each Langevin update combines attraction by the score with fresh random noise. Watch the histogram approach the target. Smaller step sizes reduce discretization bias but can take longer to explore. The board example has a constant target across t, so it needs no annealing. Parth will now explain our image experiment.',
  mnist:'Parth: A learns digits zero and one. B learns one and six. AND should favour their shared digit one. A AND NOT B should suppress one and favour zero. These are hypotheses. We will insert real sample grids, compare samplers at a matched expert-evaluation budget, and report quality, class rates and runtime. We must also keep failures and distorted images.',
  wrap:'Parth: Our exact Gaussian example explains the mismatch. MNIST tests its practical effect with learned scores. The same expert networks remain frozen throughout the comparison. We will state what improved, what failed and what it cost after the results arrive. Thank you.'
