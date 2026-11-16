@@ -1,9 +1,11 @@
 import {normal, score, model, seededRandom, gaussianRandom, moments} from './math.mjs';
+import {drawScoreMesh} from './mesh.mjs';
 
 const $ = id => document.getElementById(id);
 const palette = {ink:'#182b42', muted:'#74818d', teal:'#087f8c', coral:'#d45a42', violet:'#7052b5', grid:'#e2e3df', paper:'#f7f5ef'};
-const initial = {mA:-2,vA:1,mB:2,vB:1,t:0.5,x:1,mode:'and',alpha:0.5};
+const initial = {mA:-2,vA:1,mB:2,vB:1,t:0.5,mode:'and',alpha:0.5};
 const state = {...initial};
+const meshView = {yaw:-0.55,pitch:0.48,count:17,combined:true,correct:true};
 const fmt = (v,n=3)=>Number.isFinite(v)?v.toFixed(n):'Undefined';
 let noisePlaying = false, samplePlaying = false, noiseDirection = 1, lastFrame = 0;
 let particles = [], sampleSteps = 0, random = seededRandom(814);
@@ -33,64 +35,46 @@ function curve(c,fn,color,dashed=false,width=2.4){
   ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dashed?[6,5]:[]);ctx.beginPath();
   for(let i=0;i<=420;i++){const x=xRange[0]+i/420*(xRange[1]-xRange[0]),y=fn(x);if(i===0)ctx.moveTo(X(x),Y(y));else ctx.lineTo(X(x),Y(y));}ctx.stroke();ctx.restore();
 }
-function probe(c,x,functions){
-  const {ctx,X,Y,bounds}=c;ctx.strokeStyle='#aab0b4';ctx.lineWidth=1;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(X(x),bounds.top);ctx.lineTo(X(x),bounds.bottom);ctx.stroke();ctx.setLineDash([]);
-  for(const [fn,color] of functions){const y=Y(fn(x));if(y<bounds.top||y>bounds.bottom)continue;ctx.fillStyle=color;ctx.strokeStyle=palette.paper;ctx.lineWidth=2;ctx.beginPath();ctx.arc(X(x),y,4.5,0,Math.PI*2);ctx.fill();ctx.stroke();}
-}
 function renderPlots(m){
   const densities=[[x=>normal(x,m.noisyA.mean,m.noisyA.variance),palette.teal],[x=>normal(x,m.noisyB.mean,m.noisyB.variance),palette.coral]];
   if(m.current)densities.push([x=>normal(x,m.current.mean,m.current.variance),palette.violet]);
   if(m.required)densities.push([x=>normal(x,m.required.mean,m.required.variance),palette.ink,true]);
   const peak=Math.max(...[m.noisyA,m.noisyB,m.current,m.required].filter(Boolean).map(g=>normal(g.mean,g.mean,g.variance)));
-  const d=chart($('density-plot'),[-7,7],[0,peak*1.16]);densities.forEach(([fn,color,dash])=>curve(d,fn,color,dash));probe(d,state.x,densities);
-  renderScoreTimeline();
+  const d=chart($('density-plot'),[-7,7],[0,peak*1.16]);densities.forEach(([fn,color,dash])=>curve(d,fn,color,dash));
+  return renderScoreMesh();
 }
-function renderScoreTimeline(){
-  const at=t=>model({...state,t});
-  const combined=t=>{const m=at(t);return score(state.x,m.noisyA)+m.weight*score(state.x,m.noisyB);};
-  const clean=at(0).clean;
-  const required=t=>score(state.x,at(t).required);
-  const functions=[[combined,palette.violet]];
-  if(clean)functions.push([required,palette.ink,true]);
-  const values=Array.from({length:101},(_,i)=>functions.map(([fn])=>fn(i/100))).flat();
-  const low=Math.min(0,...values),high=Math.max(0,...values),padding=Math.max(0.25,(high-low)*0.15);
-  const c=chart($('score-timeline'),[0,1],[low-padding,high+padding],{xTicks:[0,0.25,0.5,0.75,1],xLabel:''});
-  c.ctx.fillStyle='#7052b509';c.ctx.fillRect(c.X(state.t)-8,c.bounds.top,16,c.bounds.bottom-c.bounds.top);
-  functions.forEach(([fn,color,dash])=>curve(c,fn,color,dash));
-  for(const t of [0,0.25,0.5,0.75,1]){
-    for(const [fn,color] of functions){c.ctx.fillStyle=palette.paper;c.ctx.strokeStyle=color;c.ctx.lineWidth=1.5;c.ctx.beginPath();c.ctx.arc(c.X(t),c.Y(fn(t)),3,0,Math.PI*2);c.ctx.fill();c.ctx.stroke();}
-  }
-  probe(c,state.t,functions);
-  $('score-time-caption').textContent=`At the same x = ${fmt(state.x,2)}`;
+function renderScoreMesh(){
+  const grid=drawScoreMesh($('score-mesh'),state,meshView);
+  $('gap-mean').textContent=grid.meanGap===null?'Not defined':fmt(grid.meanGap);
+  $('gap-max').textContent=grid.maxGap===null?'Not defined':fmt(grid.maxGap);
+  $('mesh-count-out').value=meshView.count;
+  return grid;
 }
 function renderLab(){
   const m=model(state);
   for(const key of ['mA','vA','mB','vB','alpha']){$(key).value=state[key];$(key+'-out').value=fmt(state[key],key.startsWith('m')?1:2);}
-  $('noise').value=state.t;$('noise-out').value=fmt(state.t,2);$('probe').value=state.x;$('probe-out').value=fmt(state.x,2);
+  $('noise').value=state.t;$('noise-out').value=fmt(state.t,2);
   $('signal-value').textContent='a = '+fmt(m.a,2);
   $('alpha-control').hidden=state.mode!=='not';
   document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===state.mode)));
-  $('combined-score-label').textContent=state.mode==='and'?'sA + sB':'sA - alpha*sB';
   $('current-label').textContent=state.mode==='and'?'Product of noisy experts':'Ratio of noisy experts';
   $('required-label').textContent=state.mode==='and'?'Noised clean product':'Noised clean ratio';
   $('required-route-title').textContent=state.mode==='and'?'Multiply, then add noise':'Take the clean ratio, then add noise';
   $('route-title').textContent=state.mode==='and'?'Add noise, then multiply':'Add noise, then take the ratio';
   $('route-copy').textContent=state.mode==='and'?'Each expert learns its own noisy density. Adding their scores gives the score of their product at t.':'Subtracting alpha times B\'s noisy score gives the score of the ratio at t, provided it can be normalized.';
-  const fA=score(state.x,m.noisyA),fB=score(state.x,m.noisyB);
-  $('score-combined').textContent=fmt(fA+m.weight*fB);
-  $('score-required').textContent=m.required?fmt(score(state.x,m.required)):'No clean target';
   $('required-moments').textContent=m.required?`Mean ${fmt(m.required.mean)} / variance ${fmt(m.required.variance)}`:'The clean ratio has no finite integral.';
   $('current-moments').textContent=m.current?`Mean ${fmt(m.current.mean)} / variance ${fmt(m.current.variance)}`:'This intermediate ratio has no finite integral.';
   $('target-warning').hidden=!!(m.clean&&m.current);
   $('target-warning').textContent=!m.clean?'For these settings, A AND NOT B has no normalizable clean Gaussian target. Its density ratio does not integrate to a finite value. Reduce alpha or change the variances.':!m.current?'The ratio at this noise level has no finite integral.':' ';
+  const grid=renderPlots(m);
   let explanation;
   if(!m.clean)explanation='A formal score difference can exist even when there is no probability distribution to sample. The dashed target is therefore hidden.';
   else if(state.t<0.0001)explanation='At t = 0, both routes agree. Reverse diffusion also needs the correct scores at all the noisy levels on the way here.';
   else if(state.mode==='and'&&Math.abs(state.vA-1)<1e-8&&Math.abs(state.vB-1)<1e-8&&Math.abs(state.mA+state.mB)<1e-8)explanation='Special board example: the purple product stays Normal(0, 0.5) at every t. The dashed noised target changes. Try Unequal widths for a changing product.';
   else if(m.current&&Math.abs(m.current.variance-m.required.variance)<1e-5&&Math.abs(m.current.mean-m.required.mean)<1e-5)explanation='The routes happen to agree at this setting. Move the sliders to check whether they agree across the whole noise path.';
-  else explanation=`At x = ${fmt(state.x,2)}, the combined score is ${fmt(fA+m.weight*fB)}, but ordinary reverse diffusion needs ${fmt(score(state.x,m.required))}. Both are scores of different intermediate densities.`;
+  else explanation=`At t = ${fmt(state.t,2)}, the two scores differ by ${fmt(grid.meanGap)} on average across the uniform x grid. The surfaces describe different intermediate densities.`;
   $('live-explanation').textContent=explanation;
-  renderPlots(m);renderParticles();
+  renderParticles();
 }
 
 function resetParticles(){random=seededRandom(814);particles=Array.from({length:512},()=>Math.sqrt(3)*gaussianRandom(random));sampleSteps=0;renderParticles();}
@@ -120,7 +104,6 @@ function stopNoise(){noisePlaying=false;$('noise-play').textContent='Animate noi
 function changed(){stopNoise();samplePlaying=false;updateSampleButton();resetParticles();renderLab();document.querySelectorAll('[data-preset]').forEach(b=>b.classList.remove('selected'));}
 for(const key of ['mA','vA','mB','vB','alpha'])$(key).addEventListener('input',e=>{state[key]=Number(e.target.value);changed();});
 $('noise').addEventListener('input',e=>{state.t=Number(e.target.value);changed();});
-$('probe').addEventListener('input',e=>{state.x=Number(e.target.value);renderLab();});
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{state.mode=b.dataset.mode;changed();}));
 function preset(name){Object.assign(state,initial,name==='unequal'?{vA:0.45,vB:2.5,mA:-2,mB:1.5}:name==='shifted'?{vA:0.7,vB:1.6,mA:-1,mB:2.5}:{});changed();document.querySelector(`[data-preset="${name}"]`).classList.add('selected');}
 document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>preset(b.dataset.preset)));
@@ -130,12 +113,23 @@ $('sample-play').addEventListener('click',()=>{stopNoise();samplePlaying=!sample
 $('sample-step').addEventListener('click',()=>{stopNoise();samplePlaying=false;updateSampleButton();advance();});
 $('sample-reset').addEventListener('click',()=>{samplePlaying=false;updateSampleButton();resetParticles();});
 $('step-size').addEventListener('input',()=>{samplePlaying=false;updateSampleButton();resetParticles();});
-for(const id of ['density-plot','score-timeline']){
-  const c=$(id);let dragging=false;
-  const move=e=>{const r=c.getBoundingClientRect(),fraction=Math.max(0,Math.min(1,(e.clientX-r.left-43)/(r.width-56)));if(id==='score-timeline'){state.t=fraction;changed();}else{state.x=-7+fraction*14;renderLab();}};
-  c.addEventListener('pointerdown',e=>{dragging=true;c.setPointerCapture(e.pointerId);move(e);});
-  c.addEventListener('pointermove',e=>{if(dragging)move(e);});c.addEventListener('pointerup',()=>dragging=false);c.addEventListener('pointercancel',()=>dragging=false);
-}
+$('mesh-count').addEventListener('input',e=>{meshView.count=Number(e.target.value);renderLab();});
+$('mesh-combined').addEventListener('change',e=>{meshView.combined=e.target.checked;renderScoreMesh();});
+$('mesh-correct').addEventListener('change',e=>{meshView.correct=e.target.checked;renderScoreMesh();});
+function resetView(){meshView.yaw=-0.55;meshView.pitch=0.48;renderScoreMesh();}
+$('mesh-reset').addEventListener('click',resetView);
+const meshCanvas=$('score-mesh');let meshDrag=null;
+meshCanvas.addEventListener('pointerdown',e=>{meshDrag={x:e.clientX,y:e.clientY,yaw:meshView.yaw,pitch:meshView.pitch};meshCanvas.setPointerCapture(e.pointerId);meshCanvas.classList.add('dragging');});
+meshCanvas.addEventListener('pointermove',e=>{if(!meshDrag)return;meshView.yaw=meshDrag.yaw+(e.clientX-meshDrag.x)*.008;meshView.pitch=Math.max(.12,Math.min(1.15,meshDrag.pitch+(e.clientY-meshDrag.y)*.006));renderScoreMesh();});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])meshCanvas.addEventListener(event,()=>{meshDrag=null;meshCanvas.classList.remove('dragging');});
+meshCanvas.addEventListener('keydown',e=>{
+  if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home'].includes(e.key))return;
+  e.preventDefault();e.stopPropagation();
+  if(e.key==='Home'){resetView();return;}
+  if(e.key==='ArrowLeft')meshView.yaw-=.1;if(e.key==='ArrowRight')meshView.yaw+=.1;
+  if(e.key==='ArrowUp')meshView.pitch=Math.min(1.15,meshView.pitch+.08);if(e.key==='ArrowDown')meshView.pitch=Math.max(.12,meshView.pitch-.08);
+  renderScoreMesh();
+});
 function frame(now){
   if(now-lastFrame>45){
     const delta=lastFrame?Math.min(now-lastFrame,100):45;lastFrame=now;
@@ -190,7 +184,7 @@ $('import-results').addEventListener('change',async e=>{
 const chapters=Array.from(document.querySelectorAll('.chapter'));
 const scripts={
  intro:'Krishiv: We study how to reuse diffusion experts after training. A learns zeros and ones, and B learns ones and sixes. We compare AND and A AND NOT B. First, the Gaussian lab lets us inspect the mathematical issue without neural network errors.',
- lab:'Krishiv: Choose a probe point x. The score chart holds x fixed and shows scores across the entire noise range. Purple combines the noisy experts. The dashed curve is the correct reverse-diffusion score. Their intermediate values generally differ, although they agree at the clean endpoint. Move the noise slider or click the chart to inspect t. In the board example, at t = 0.5 the two density variances are 0.5 and 0.875. Try unequal widths to see a changing product. NOT subtracts a scaled B score, but some ratios have no finite integral.',
+ lab:'Krishiv: The mesh shows many equally spaced x positions at once. Its axes are x, noise level t and score. Purple combines the noisy experts; the dark surface is the correct reverse-diffusion score. Move the noise slider to highlight a cross-section and rotate the mesh to inspect their gap. Each strand evaluates the score at a fixed x through time. The whole field generally differs at noisy levels and agrees at the clean endpoint. In the board example, at t = 0.5 the two density variances are 0.5 and 0.875. Try unequal widths to see a changing product. NOT subtracts a scaled B score, but some ratios have no finite integral.',
  sampling:'Krishiv: Here we hold t fixed. Each Langevin update combines attraction by the score with fresh random noise. Watch the histogram approach the target. Smaller step sizes reduce discretization bias but can take longer to explore. The board example has a constant target across t, so it needs no annealing. Parth will now explain our image experiment.',
  mnist:'Parth: A learns digits zero and one. B learns one and six. AND should favour their shared digit one. A AND NOT B should suppress one and favour zero. These are hypotheses. We will insert real sample grids, compare samplers at a matched expert-evaluation budget, and report quality, class rates and runtime. We must also keep failures and distorted images.',
  wrap:'Parth: Our exact Gaussian example explains the mismatch. MNIST tests its practical effect with learned scores. The same expert networks remain frozen throughout the comparison. We will state what improved, what failed and what it cost after the results arrive. Thank you.'
