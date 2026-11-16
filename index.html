@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore Gaussian experts, their noisy scores, and composition with interactive plots. A simple explanation of Reduce, Reuse, Recycle, with a MNIST experiment plan.">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>Diffusion Composition Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#lab">Skip to the interactive example</a>
+<header class="site-header">
+  <a class="brand" href="#intro">Diffusion <span>Composition Lab</span></a>
+  <nav aria-label="Sections"><a href="#lab">Gaussian lab</a><a href="#sampling">Langevin</a><a href="#mnist">MNIST</a></nav>
+  <button id="present" class="quiet">Present</button>
+</header>
+<main>
+  <section id="intro" class="chapter hero" data-speaker="Krishiv">
+    <div class="hero-copy">
+      <p class="eyebrow">A paper, explained through an experiment</p>
+      <h1>Two experts.<br><span>One new target.</span></h1>
+      <p class="lead">Adding scores is easy. Sampling from the right distribution takes more care.</p>
+      <a class="button" href="#lab">Explore the Gaussian example <span aria-hidden="true">+</span></a>
+      <p class="byline">Krishiv Trivedi and Parth Sachdeva</p>
+    </div>
+    <img class="hero-art" src="assets/cover_digits.png" alt="Colorful paper numerals 0, 1 and 6, a concept illustration">
+    <div class="paper-credit"><strong>Reduce, Reuse, Recycle</strong><br>Compositional Generation with Energy-Based Diffusion Models and MCMC<br>Du et al., ICML 2023. <a href="https://proceedings.mlr.press/v202/du23a.html" target="_blank" rel="noopener">Read the paper</a></div>
+  </section>
+
+  <section id="lab" class="chapter lab" data-speaker="Krishiv">
+    <div class="section-heading"><div><p class="eyebrow">01 / Move the distributions</p><h2>The Gaussian lab</h2></div><p>Change either expert. Then inspect the scores at any x and noise level.</p></div>
+    <div class="presets"><span>Try a setup</span><button data-preset="board" class="selected">Board example</button><button data-preset="unequal">Unequal widths</button><button data-preset="shifted">Shifted overlap</button><button id="reset-lab" class="text-button">Reset</button></div>
+    <div class="lab-layout">
+      <aside class="controls" aria-label="Gaussian settings">
+        <fieldset><legend class="teal">Expert A</legend>
+          <label for="mA">Mean <output id="mA-out">-2.0</output></label><input id="mA" type="range" min="-4" max="4" step="0.1" value="-2">
+          <label for="vA">Variance <output id="vA-out">1.00</output></label><input id="vA" type="range" min="0.2" max="3" step="0.05" value="1">
+        </fieldset>
+        <fieldset><legend class="coral">Expert B</legend>
+          <label for="mB">Mean <output id="mB-out">2.0</output></label><input id="mB" type="range" min="-4" max="4" step="0.1" value="2">
+          <label for="vB">Variance <output id="vB-out">1.00</output></label><input id="vB" type="range" min="0.2" max="3" step="0.05" value="1">
+        </fieldset>
+        <fieldset><legend>Composition</legend><div class="segmented" aria-label="Composition operation"><button data-mode="and" aria-pressed="true">A AND B</button><button data-mode="not" aria-pressed="false">A AND NOT B</button></div>
+          <div id="alpha-control" hidden><label for="alpha">NOT strength alpha <output id="alpha-out">0.50</output></label><input id="alpha" type="range" min="0" max="0.75" step="0.05" value="0.5"></div>
+        </fieldset>
+        <p class="tiny">Variance controls width. Standard deviation is its square root. These curves are exact Gaussian calculations.</p>
+      </aside>
+      <div class="plot-area">
+        <div class="timeline">
+          <label for="noise">Noise level t <output id="noise-out">0.50</output></label><input id="noise" type="range" min="0" max="1" step="0.005" value="0.5">
+          <div class="range-labels"><span>0: clean</span><button id="noise-play" class="text-button" aria-pressed="false">Animate noise</button><span>1: fully noisy limit</span></div>
+          <p class="equation">x_t = a*x_0 + sqrt(1-a*a)*z <span id="signal-value">a = 0.50</span></p>
+        </div>
+        <div class="plot-title"><h3>Probability densities</h3><span>Click or drag a plot to move x</span></div>
+        <canvas id="density-plot" role="img" aria-label="Gaussian densities for both experts, their current composition, and the noised clean target"></canvas>
+        <div class="legend"><span class="key teal">Expert A at t</span><span class="key coral">Expert B at t</span><span class="key violet" id="current-label">Product of noisy experts</span><span class="key navy dashed" id="required-label">Noised clean product</span></div>
+        <div class="plot-title"><h3>Score functions</h3><span>score = slope of log density</span></div>
+        <canvas id="score-plot" role="img" aria-label="Expert score lines, their combination, and the score required by ordinary reverse diffusion"></canvas>
+        <div class="probe"><label for="probe">Probe point x <output id="probe-out">1.00</output></label><input id="probe" type="range" min="-7" max="7" step="0.01" value="1"></div>
+        <div class="score-readout" aria-label="Scores at the probe point"><div class="teal">sA(x,t)<strong id="score-A"></strong></div><div class="coral">sB(x,t)<strong id="score-B"></strong></div><div class="violet"><span id="combined-score-label">sA + sB</span><strong id="score-combined"></strong></div><div>Needed by reverse diffusion<strong id="score-required"></strong></div></div>
+      </div>
+    </div>
+    <div id="target-warning" class="warning" role="status" hidden></div>
+    <div class="explain-row"><div><h3 id="required-route-title">Multiply, then add noise</h3><p>First form the clean target. Its noisy score is what ordinary reverse diffusion needs.</p><p class="metric" id="required-moments"></p></div><div><h3 id="route-title">Add noise, then multiply</h3><p id="route-copy">Each expert learns its own noisy density. Adding their scores gives the score of their product at t.</p><p class="metric violet" id="current-moments"></p></div></div>
+    <p id="live-explanation" class="takeaway" aria-live="polite"></p>
+    <p class="source">The two routes are Equations 11 and 12 in <a href="https://arxiv.org/html/2302.11552v6#S4.E11" target="_blank" rel="noopener">Section 4</a>. The ratio mode extends the same check to NOT. The slider uses a = 1 - t for a simple display of noise strength.</p>
+  </section>
+
+  <section id="sampling" class="chapter" data-speaker="Krishiv">
+    <div class="section-heading"><div><p class="eyebrow">02 / Change the sampler</p><h2>What Langevin does</h2></div><p>The Gaussian controls above choose the current target. Hold t fixed here and watch samples explore it.</p></div>
+    <div class="sampling-layout"><div>
+      <div class="plot-title"><h3>Samples and the current target</h3><span>512 simulated particles</span></div>
+      <canvas id="particle-plot" role="img" aria-label="Histogram of simulated Langevin samples and the exact Gaussian target density"></canvas>
+      <div class="legend"><span class="key violet">Exact current target</span><span class="key teal">Sample histogram</span></div>
+      <div class="simulation-stats"><div>Updates<strong id="step-count">0</strong></div><div>Sample variance<strong id="sample-var"></strong></div><div>Target variance<strong id="target-var"></strong></div></div>
+    </div><div class="sampling-copy">
+      <p class="equation multiline">x_next = x + 0.5*h*s(x,t)<br>+ sqrt(h)*fresh_noise</p>
+      <label for="step-size">Step size h <output id="step-size-out">0.05</output></label><input id="step-size" type="range" min="0.005" max="0.25" step="0.005" value="0.05">
+      <div class="actions"><button id="sample-play" class="button" aria-pressed="false">Run Langevin</button><button id="sample-step">One update</button><button id="sample-reset">Reset samples</button></div>
+      <p id="sampler-status" role="status"></p>
+      <p id="stationary-variance" class="tiny"></p>
+      <details><summary>Why does the board example need no annealing?</summary><p>Its opposite means cancel and its expert variances stay at 1. The current product stays Normal(0, 0.5), so its score stays -2*x at every t. Langevin can sample that fixed target. Try Unequal widths to see a changing intermediate target.</p></details>
+    </div></div>
+    <div class="explain-row"><div><h3>At one fixed t</h3><p>The score attracts particles. Fresh noise spreads them. Their balance samples a distribution rather than finding only its peak.</p></div><div><h3>Across noise levels</h3><p>Annealed sampling runs several updates, lowers t, then repeats. This demo isolates one level so you can inspect the balance.</p></div></div>
+    <p class="source">A numerical illustration of unadjusted Langevin sampling, not a neural network training run. Finite step size adds bias. <a href="https://arxiv.org/html/2302.11552v6#S4.SS1" target="_blank" rel="noopener">Paper: Section 4.1 and Algorithm 1</a></p>
+  </section>
+
+  <section id="mnist" class="chapter" data-speaker="Parth">
+    <div class="section-heading"><div><p class="eyebrow">03 / Our image experiment</p><h2>MNIST: AND and NOT</h2></div><p>We train the experts separately, freeze them, then compare samplers. Results are pending.</p></div>
+    <div class="experts-row"><div><p class="teal">Expert A learns</p><strong class="digits teal">0 <span>1</span></strong></div><div><p class="coral">Expert B learns</p><strong class="digits coral"><span>1</span> 6</strong></div><img src="assets/expert_overlap.png" alt="Two translucent color washes overlap, illustrating shared preferences"></div>
+    <div class="explain-row"><div><h3 class="violet">A AND B</h3><p class="equation">q = pA*pB/Z</p><p class="equation">score = sA + sB</p><p>Hypothesis: favour the shared digit <strong>1</strong>.</p></div><div><h3 class="coral">A AND NOT B</h3><p class="equation">q = (pA/pB^alpha)/Z</p><p class="equation">score = sA - alpha*sB</p><p>Hypothesis: suppress 1 and favour <strong>0</strong>.</p></div></div>
+    <p class="caution">These are soft density operations. A ratio can amplify unrealistic regions where B is tiny. A normalized NOT target needs a finite integral. The Gaussian lab shows when that condition fails.</p>
+    <div class="result-heading"><h3>Experiment results</h3><div class="actions"><button id="export-results">Export results</button><label class="file-button" for="import-results">Import results</label><input id="import-results" type="file" accept="application/json,.json" hidden></div></div>
+    <p class="tiny">Add sample grids from your experiment. Uploads stay in this browser tab. Export to keep them, then import when presenting. No files are sent to a server.</p>
+    <div id="result-grids" class="result-grids"></div>
+    <div class="table-scroll"><table id="results-table"><caption>Measurements to fill after the experiment</caption><thead><tr><th>Metric</th><th>AND<br>Reverse</th><th>AND<br>Langevin</th><th>NOT<br>Reverse</th><th>NOT<br>Langevin</th></tr></thead><tbody></tbody></table></div>
+    <p class="tiny">Target digit: 1 for AND, 0 for NOT. All rates use all generated samples. Check image quality as well as classifier predictions.</p>
+    <div class="run-fields"><label>Sample count N<input id="run-N" placeholder="Not supplied"></label><label>NOT alpha<input id="run-alpha" placeholder="Not supplied"></label><label>Seeds and hardware<input id="run-seeds" placeholder="Not supplied"></label></div>
+    <label class="findings-label" for="findings">Findings and tweaks</label><textarea id="findings" rows="4" placeholder="After the runs: what changed, which settings helped, what failed, and what did it cost?"></textarea>
+    <p id="results-status" class="tiny" role="status"></p>
+  </section>
+
+  <section id="wrap" class="chapter wrap" data-speaker="Parth">
+    <p class="eyebrow">04 / What we will test</p><h2>The same experts.<br>A different sampling method.</h2>
+    <div class="explain-row"><div><h3>A fair comparison</h3><p>Keep networks fixed. Match expert evaluations. Record runtime, initialization and seed variation. Include A alone as the alpha = 0 control.</p></div><div><h3>What counts as evidence</h3><p>Use the 1D case for exact checks. Use real MNIST grids for quality and class behaviour. Report failures alongside improvements.</p></div></div>
+    <details><summary>What else does the paper offer?</summary><p>Energy models allow adjusted samplers such as MALA. The paper also studies mixtures, guidance and spatial composition. These extensions are outside this experiment. A score-only network does not directly provide the log-density differences required by MALA.</p></details>
+    <div class="reading"><h3>Reading guide</h3><a href="https://arxiv.org/html/2302.11552v6#S3" target="_blank" rel="noopener">Section 3: products and negation</a><a href="https://arxiv.org/html/2302.11552v6#S4" target="_blank" rel="noopener">Section 4: the mismatch</a><a href="https://arxiv.org/html/2302.11552v6#S4.SS1" target="_blank" rel="noopener">Section 4.1: annealed MCMC</a></div>
+    <p class="tiny">Gaussian calculations are exact. Particle samples are a numerical demonstration. MNIST results remain placeholders until you insert measured outputs. Colorful illustrations are conceptual assets.</p>
+  </section>
+</main>
+<footer><span>Krishiv Trivedi and Parth Sachdeva</span><button id="notes-toggle" class="text-button" aria-expanded="false">Speaker notes</button></footer>
+<aside id="notes-panel" hidden aria-label="Speaker notes"><button id="notes-close" aria-label="Close speaker notes">Close</button><h3 id="notes-title"></h3><p id="notes-body"></p><a href="speech_draft.md" download>Download the two-person speech draft</a></aside>
+<div id="presentation-controls" hidden><button id="previous-section">Previous</button><span id="section-counter"></span><button id="next-section">Next</button><span class="tiny">Left / Right to navigate. Esc to exit.</span></div>
+<script type="module" src="app.mjs"></script>
+</body>
+</html>
