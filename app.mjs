@@ -1,5 +1,6 @@
 import {normal, score, model, seededRandom, gaussianRandom, moments} from './math.mjs';
 import {drawScoreMesh} from './mesh.mjs';
+import {talk,paperFigures} from './presentation.mjs';
 
 const $ = id => document.getElementById(id);
 const palette = {ink:'#182b42', muted:'#74818d', teal:'#087f8c', coral:'#d45a42', violet:'#7052b5', grid:'#e2e3df', paper:'#f7f5ef'};
@@ -181,21 +182,25 @@ $('import-results').addEventListener('change',async e=>{
   }catch(error){$('results-status').textContent='Could not import: '+error.message;}finally{e.target.value='';}
 });
 
+function showPaperFigure(key){
+  const figure=paperFigures[key];
+  $('paper-example-image').src=figure.file;$('paper-example-image').alt=figure.alt;
+  $('paper-example-caption').textContent=figure.caption;$('paper-example-lesson').textContent=figure.lesson;$('paper-example-source').href=figure.url;
+  document.querySelectorAll('[data-paper-figure]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.paperFigure===key)));
+}
+document.querySelectorAll('[data-paper-figure]').forEach(button=>button.addEventListener('click',()=>showPaperFigure(button.dataset.paperFigure)));
+showPaperFigure('overview');
 const chapters=Array.from(document.querySelectorAll('.chapter'));
-const scripts={
- intro:'Krishiv: We study how to reuse diffusion experts after training. A learns zeros and ones, and B learns ones and sixes. We compare AND and A AND NOT B. First, the Gaussian lab lets us inspect the mathematical issue without neural network errors.',
- lab:'Krishiv: The mesh shows many equally spaced x positions at once. Its axes are x, noise level t and score. Purple combines the noisy experts; the dark surface is the correct reverse-diffusion score. Move the noise slider to highlight a cross-section and rotate the mesh to inspect their gap. Each strand evaluates the score at a fixed x through time. The whole field generally differs at noisy levels and agrees at the clean endpoint. In the board example, at t = 0.5 the two density variances are 0.5 and 0.875. Try unequal widths to see a changing product. NOT subtracts a scaled B score, but some ratios have no finite integral.',
- sampling:'Krishiv: Here we hold t fixed. Each Langevin update combines attraction by the score with fresh random noise. Watch the histogram approach the target. Smaller step sizes reduce discretization bias but can take longer to explore. The board example has a constant target across t, so it needs no annealing. Parth will now explain our image experiment.',
- mnist:'Parth: A learns digits zero and one. B learns one and six. AND should favour their shared digit one. A AND NOT B should suppress one and favour zero. These are hypotheses. We will insert real sample grids, compare samplers at a matched expert-evaluation budget, and report quality, class rates and runtime. We must also keep failures and distorted images.',
- wrap:'Parth: Our exact Gaussian example explains the mismatch. MNIST tests its practical effect with learned scores. The same expert networks remain frozen throughout the comparison. We will state what improved, what failed and what it cost after the results arrive. Thank you.'
-};
+const scripts=Object.fromEntries(talk.map(section=>[section.id,section]));
+for(const [i,chapter] of chapters.entries()){const option=document.createElement('option');option.value=i;option.textContent=`${i+1}. ${scripts[chapter.id].title}`;$('section-jump').append(option);}
 let presenting=false,active=0,currentChapter=chapters[0];
-function showChapter(i){active=Math.max(0,Math.min(chapters.length-1,i));chapters.forEach((s,j)=>s.classList.toggle('active-chapter',j===active));currentChapter=chapters[active];$('section-counter').textContent=`${active+1} / ${chapters.length}`;$('previous-section').disabled=active===0;$('next-section').disabled=active===chapters.length-1;window.scrollTo({top:0,behavior:'instant'});updateNotes();requestAnimationFrame(()=>{renderLab();renderParticles();});}
-function togglePresent(){presenting=!presenting;document.body.classList.toggle('presenting',presenting);$('present').textContent=presenting?'Exit presentation':'Present';$('presentation-controls').hidden=!presenting;if(presenting){active=Math.max(0,chapters.indexOf(currentChapter));showChapter(active);}else{chapters[active].scrollIntoView();requestAnimationFrame(renderLab);}}
+function showChapter(i){active=Math.max(0,Math.min(chapters.length-1,i));chapters.forEach((s,j)=>s.classList.toggle('active-chapter',j===active));currentChapter=chapters[active];$('section-counter').textContent=`${active+1} / ${chapters.length}`;$('section-jump').value=active;$('previous-section').disabled=active===0;$('next-section').disabled=active===chapters.length-1;window.scrollTo({top:0,behavior:'instant'});updateNotes();requestAnimationFrame(()=>{renderLab();renderParticles();});}
+function togglePresent(){presenting=!presenting;document.body.classList.toggle('presenting',presenting);$('present').textContent=presenting?'Exit presentation':'Present';$('present').setAttribute('aria-pressed',String(presenting));$('presentation-controls').hidden=!presenting;if(presenting){active=Math.max(0,chapters.indexOf(currentChapter));showChapter(active);}else{chapters[active].scrollIntoView();requestAnimationFrame(renderLab);}}
 $('present').addEventListener('click',togglePresent);$('previous-section').addEventListener('click',()=>showChapter(active-1));$('next-section').addEventListener('click',()=>showChapter(active+1));
+$('section-jump').addEventListener('change',e=>showChapter(Number(e.target.value)));
 document.addEventListener('keydown',e=>{if(!presenting||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(e.key==='ArrowRight'){e.preventDefault();showChapter(active+1);}if(e.key==='ArrowLeft'){e.preventDefault();showChapter(active-1);}if(e.key==='Escape'){togglePresent();}});
 document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{if(!presenting)return;const i=chapters.findIndex(s=>'#'+s.id===a.getAttribute('href'));if(i>=0){e.preventDefault();showChapter(i);}}));
-function updateNotes(){$('notes-title').textContent=currentChapter.dataset.speaker+' / '+currentChapter.querySelector('h1,h2').textContent;$('notes-body').textContent=scripts[currentChapter.id];}
+function updateNotes(){const section=scripts[currentChapter.id];$('notes-title').textContent=section.speaker+' / '+section.title;$('notes-body').textContent=section.speech+(section.cue?'\n\nDemo cue: '+section.cue:'');$('notes-sources').replaceChildren();for(const source of section.sources){const a=document.createElement('a');a.href=source.url;a.textContent=source.label;a.target='_blank';a.rel='noopener';$('notes-sources').append(a);}}
 $('notes-toggle').addEventListener('click',()=>{$('notes-panel').hidden=!$('notes-panel').hidden;$('notes-toggle').setAttribute('aria-expanded',String(!$('notes-panel').hidden));updateNotes();});
 $('notes-close').addEventListener('click',()=>{$('notes-panel').hidden=true;$('notes-toggle').setAttribute('aria-expanded','false');});
 const observer=new IntersectionObserver(entries=>{if(presenting)return;const visible=entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio);if(visible[0]){currentChapter=visible[0].target;updateNotes();}},{rootMargin:'-15% 0px -40% 0px',threshold:[0,.1,.3]});chapters.forEach(s=>observer.observe(s));
