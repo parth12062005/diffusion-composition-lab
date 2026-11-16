@@ -24,20 +24,22 @@ Here we control the mean and variance of each expert. Variance controls its
 width. The noise slider applies the same forward corruption to both experts.
 At zero we have the clean densities. At one we reach the fully noisy limit.
 
-Move the probe point x. The score chart holds this x fixed and shows how
-the combined and correct scores change across noise levels. The dots mark
-intermediate times, and the vertical line marks the current t. A score is
-the slope of log density. It tells us a direction for changing the sample.
+The mesh shows many evenly spaced x positions at once. Its axes are position,
+noise level and score. Each strand follows the score at one fixed x across
+time, and the cross-lines connect neighbouring positions. A score is the
+slope of log density. It tells us a direction for changing the sample.
 
 For AND, we multiply the densities. Taking a log turns the product into a
-sum, so the scores add. The purple curve shows that combined score across
-time. This addition is mathematically correct.
+sum, so the scores add. The purple surface shows that combined score across
+positions and time. This addition is mathematically correct.
 
 But ordinary reverse diffusion needs the score of a different construction.
 It needs us to take the clean product first, then add forward noise to that
-product. The dashed curve shows that correct score across time. Their gap
-at intermediate times explains why the usual reverse update receives the
-wrong score. Move the noise slider or click the chart to inspect a time.
+product. The dark surface shows that correct score across positions and
+time. Their separation at intermediate times explains why the usual reverse
+update receives the wrong score. Move the noise slider to highlight a slice.
+Rotate the mesh or hide one surface to inspect its shape. The mesh evaluates
+a score field. Actual particle motion appears in the next demonstration.
 
 For the board example, A is Normal(-2,1) and B is Normal(2,1), with variance
 as the second number. The clean product is Normal(0,0.5). At the displayed

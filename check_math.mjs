@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {normal,score,model,combine,seededRandom,gaussianRandom,moments} from './dist/math.mjs';
+import {scoreGrid} from './dist/mesh.mjs';
 const base={mA:-2,vA:1,mB:2,vB:1,t:0.5,x:1,mode:'and',alpha:0.5};
 const close=(a,b,tolerance=1e-9)=>assert.ok(Math.abs(a-b)<tolerance,`${a} differs from ${b}`);
 
@@ -26,6 +27,16 @@ const clean=model({...base,vA:0.45,vB:2.5,t:0});
 close(clean.current.mean,clean.required.mean);close(clean.current.variance,clean.required.variance);
 assert.equal(model({...base,mode:'not',vA:3,vB:0.2}).clean,null);
 close(model({...base,mode:'not',t:1}).current.variance,2);
+
+// Check that the mesh covers a uniform spatial grid and preserves both fields.
+const mesh=scoreGrid(base,17);
+assert.equal(mesh.rows.length,25);assert.equal(mesh.xs.length,17);
+close(mesh.xs[0],-5);close(mesh.xs.at(-1),5);
+mesh.xs.slice(1).forEach((x,i)=>close(x-mesh.xs[i],0.625));
+for(const p of mesh.rows[0])close(p.combined,p.correct);
+for(const p of mesh.rows.at(-1)){close(p.combined,-2*p.x);close(p.correct,-p.x);}
+close(mesh.maxGap,30/7);
+for(const p of scoreGrid({...base,mode:'not',vA:3,vB:0.2}).rows.flat())assert.equal(p.correct,null);
 
 // A Monte Carlo check catches drift/noise scaling errors in the Langevin update.
 const rand=seededRandom(814),h=0.05;

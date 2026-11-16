@@ -29,7 +29,7 @@
   </section>
 
   <section id="lab" class="chapter lab" data-speaker="Krishiv">
-    <div class="section-heading"><div><p class="eyebrow">01 / Move the distributions</p><h2>The Gaussian lab</h2></div><p>Change either expert. Then inspect the scores at any x and noise level.</p></div>
+    <div class="section-heading"><div><p class="eyebrow">01 / Move the distributions</p><h2>The Gaussian lab</h2></div><p>Change either expert. Explore the complete score field across positions and noise levels.</p></div>
     <div class="presets"><span>Try a setup</span><button data-preset="board" class="selected">Board example</button><button data-preset="unequal">Unequal widths</button><button data-preset="shifted">Shifted overlap</button><button id="reset-lab" class="text-button">Reset</button></div>
     <div class="lab-layout">
       <aside class="controls" aria-label="Gaussian settings">
@@ -50,18 +50,17 @@
         <div class="timeline">
           <label for="noise">Noise level t <output id="noise-out">0.50</output></label><input id="noise" type="range" min="0" max="1" step="0.005" value="0.5">
           <div class="range-labels"><span>0: clean</span><button id="noise-play" class="text-button" aria-pressed="false">Animate noise</button><span>1: fully noisy limit</span></div>
-          <p class="equation">x_t = a*x_0 + sqrt(1-a*a)*z <span id="signal-value">a = 0.50</span></p>
+          <div class="noise-equation"><math xmlns="http://www.w3.org/1998/Math/MathML" aria-label="x at time t equals a times x zero plus square root of one minus a squared times z"><msub><mi>x</mi><mi>t</mi></msub><mo>=</mo><mi>a</mi><msub><mi>x</mi><mn>0</mn></msub><mo>+</mo><msqrt><mrow><mn>1</mn><mo>−</mo><msup><mi>a</mi><mn>2</mn></msup></mrow></msqrt><mi>z</mi></math><span id="signal-value">a = 0.50</span></div>
         </div>
-        <div class="plot-title"><h3>Probability densities</h3><span>Click or drag here to move x</span></div>
+        <div class="plot-title"><h3>Probability densities</h3><span>At the selected noise level</span></div>
         <canvas id="density-plot" role="img" aria-label="Gaussian densities for both experts, their current composition, and the noised clean target"></canvas>
         <div class="legend"><span class="key teal">Expert A at t</span><span class="key coral">Expert B at t</span><span class="key violet" id="current-label">Product of noisy experts</span><span class="key navy dashed" id="required-label">Noised clean product</span></div>
-        <div class="probe"><label for="probe">Probe point x <output id="probe-out">1.00</output></label><input id="probe" type="range" min="-7" max="7" step="0.01" value="1"></div>
-        <div class="plot-title"><h3>Scores through time</h3><span id="score-time-caption">At the same x = 1.00</span></div>
-        <canvas id="score-timeline" role="img" aria-label="Combined expert score and the correct reverse-diffusion score across noise levels, at a fixed probe point x"></canvas>
-        <div class="range-labels time-endpoints"><span>t = 0: clean</span><span>t = 1: fully noisy</span></div>
-        <div class="legend"><span class="key violet">Combined expert score</span><span class="key navy dashed">Correct reverse-diffusion score</span></div>
-        <p class="tiny">Dots show intermediate times. The vertical line marks your current t. Click or drag this chart to select t.</p>
-        <div class="score-readout" aria-label="Score comparison at the selected x and t"><div class="violet"><span id="combined-score-label">sA + sB</span><strong id="score-combined"></strong></div><div>Needed by reverse diffusion<strong id="score-required"></strong></div></div>
+        <div class="plot-title"><h3>The score field through time</h3><span>Position x · noise t · score s(x,t)</span></div>
+        <div class="mesh-controls"><label class="violet"><input id="mesh-combined" type="checkbox" checked> Combined expert score</label><label class="navy"><input id="mesh-correct" type="checkbox" checked> Correct reverse score</label><button id="mesh-reset" class="text-button">Reset view</button></div>
+        <canvas id="score-mesh" role="img" tabindex="0" aria-describedby="mesh-help" aria-label="Rotatable mesh of combined and correct scores across uniformly spaced positions x and noise levels t"></canvas>
+        <div class="mesh-density"><label for="mesh-count">Uniform x positions <output id="mesh-count-out">17</output></label><input id="mesh-count" type="range" min="9" max="33" step="2" value="17"></div>
+        <p id="mesh-help" class="tiny">Drag to rotate, or focus the mesh and use the arrow keys. Thick cross-sections mark the selected t. Each strand holds a grid position x fixed and evaluates its score through time. Particle motion appears in the Langevin demo below.</p>
+        <div class="score-readout" aria-label="Absolute score differences across the uniform grid at the selected noise level"><div>Mean absolute score gap<strong id="gap-mean"></strong></div><div>Largest score gap<strong id="gap-max"></strong></div></div>
       </div>
     </div>
     <div id="target-warning" class="warning" role="status" hidden></div>
@@ -78,7 +77,7 @@
       <div class="legend"><span class="key violet">Exact current target</span><span class="key teal">Sample histogram</span></div>
       <div class="simulation-stats"><div>Updates<strong id="step-count">0</strong></div><div>Sample variance<strong id="sample-var"></strong></div><div>Target variance<strong id="target-var"></strong></div></div>
     </div><div class="sampling-copy">
-      <p class="equation multiline">x_next = x + 0.5*h*s(x,t)<br>+ sqrt(h)*fresh_noise</p>
+      <p class="math-equation"><math xmlns="http://www.w3.org/1998/Math/MathML" aria-label="x next equals x plus h over two times the score plus square root of h times fresh normal noise"><msub><mi>x</mi><mtext>next</mtext></msub><mo>=</mo><mi>x</mi><mo>+</mo><mfrac><mi>h</mi><mn>2</mn></mfrac><mi>s</mi><mo>(</mo><mi>x</mi><mo>,</mo><mi>t</mi><mo>)</mo><mo>+</mo><msqrt><mi>h</mi></msqrt><mi>z</mi></math></p>
       <label for="step-size">Step size h <output id="step-size-out">0.05</output></label><input id="step-size" type="range" min="0.005" max="0.25" step="0.005" value="0.05">
       <div class="actions"><button id="sample-play" class="button" aria-pressed="false">Run Langevin</button><button id="sample-step">One update</button><button id="sample-reset">Reset samples</button></div>
       <p id="sampler-status" role="status"></p>
@@ -92,7 +91,7 @@
   <section id="mnist" class="chapter" data-speaker="Parth">
     <div class="section-heading"><div><p class="eyebrow">03 / Our image experiment</p><h2>MNIST: AND and NOT</h2></div><p>We train the experts separately, freeze them, then compare samplers. Results are pending.</p></div>
     <div class="experts-row"><div><p class="teal">Expert A learns</p><strong class="digits teal">0 <span>1</span></strong></div><div><p class="coral">Expert B learns</p><strong class="digits coral"><span>1</span> 6</strong></div><img src="assets/expert_overlap.png" alt="Two translucent color washes overlap, illustrating shared preferences"></div>
-    <div class="explain-row"><div><h3 class="violet">A AND B</h3><p class="equation">q = pA*pB/Z</p><p class="equation">score = sA + sB</p><p>Hypothesis: favour the shared digit <strong>1</strong>.</p></div><div><h3 class="coral">A AND NOT B</h3><p class="equation">q = (pA/pB^alpha)/Z</p><p class="equation">score = sA - alpha*sB</p><p>Hypothesis: suppress 1 and favour <strong>0</strong>.</p></div></div>
+    <div class="explain-row"><div><h3 class="violet">A AND B</h3><p class="math-equation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>q</mi><mo>=</mo><mfrac><mrow><msub><mi>p</mi><mi>A</mi></msub><msub><mi>p</mi><mi>B</mi></msub></mrow><mi>Z</mi></mfrac></math></p><p class="math-equation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>s</mi><mo>=</mo><msub><mi>s</mi><mi>A</mi></msub><mo>+</mo><msub><mi>s</mi><mi>B</mi></msub></math></p><p>Hypothesis: favour the shared digit <strong>1</strong>.</p></div><div><h3 class="coral">A AND NOT B</h3><p class="math-equation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>q</mi><mo>=</mo><mfrac><msub><mi>p</mi><mi>A</mi></msub><mrow><mi>Z</mi><msup><msub><mi>p</mi><mi>B</mi></msub><mi>α</mi></msup></mrow></mfrac></math></p><p class="math-equation"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>s</mi><mo>=</mo><msub><mi>s</mi><mi>A</mi></msub><mo>−</mo><mi>α</mi><msub><mi>s</mi><mi>B</mi></msub></math></p><p>Hypothesis: suppress 1 and favour <strong>0</strong>.</p></div></div>
     <p class="caution">These are soft density operations. A ratio can amplify unrealistic regions where B is tiny. A normalized NOT target needs a finite integral. The Gaussian lab shows when that condition fails.</p>
     <div class="result-heading"><h3>Experiment results</h3><div class="actions"><button id="export-results">Export results</button><label class="file-button" for="import-results">Import results</label><input id="import-results" type="file" accept="application/json,.json" hidden></div></div>
     <p class="tiny">Add sample grids from your experiment. Uploads stay in this browser tab. Export to keep them, then import when presenting. No files are sent to a server.</p>

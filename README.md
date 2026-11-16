@@ -24,9 +24,10 @@ The full two-person script is dist/speech_draft.md.
 
 - Change each Gaussian mean and variance.
 - Move the noise slider or animate it.
-- Move x with the probe slider or click and drag the density plot.
-- Compare the combined and correct scores across the full noise range.
-- Click the score timeline to inspect intermediate times at the same x.
+- View both score fields over evenly spaced x positions and noise levels.
+- Rotate the mesh by dragging or using the arrow keys. Home resets the view.
+- Change the uniform grid density and hide either surface.
+- Move the noise slider to highlight cross-sections of the two surfaces.
 - Switch between AND and A AND NOT B, with an alpha slider.
 - Observe warnings for ratios with no finite integral.
 - Run, pause, reset or single-step the Langevin particles.
@@ -52,4 +53,5 @@ Paper: https://proceedings.mlr.press/v202/du23a.html
 Full text: https://arxiv.org/html/2302.11552v6
 The class split and Gaussian lab are project adaptations.
 The two PNG illustrations are AI-generated concept art, not experiment results.
-All visible text uses ASCII.
+The equations use native MathML for rendered mathematical notation.
+No external math library or network request is needed to render them.
