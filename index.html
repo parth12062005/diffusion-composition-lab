@@ -52,13 +52,16 @@
           <div class="range-labels"><span>0: clean</span><button id="noise-play" class="text-button" aria-pressed="false">Animate noise</button><span>1: fully noisy limit</span></div>
           <p class="equation">x_t = a*x_0 + sqrt(1-a*a)*z <span id="signal-value">a = 0.50</span></p>
         </div>
-        <div class="plot-title"><h3>Probability densities</h3><span>Click or drag a plot to move x</span></div>
+        <div class="plot-title"><h3>Probability densities</h3><span>Click or drag here to move x</span></div>
         <canvas id="density-plot" role="img" aria-label="Gaussian densities for both experts, their current composition, and the noised clean target"></canvas>
         <div class="legend"><span class="key teal">Expert A at t</span><span class="key coral">Expert B at t</span><span class="key violet" id="current-label">Product of noisy experts</span><span class="key navy dashed" id="required-label">Noised clean product</span></div>
-        <div class="plot-title"><h3>Score functions</h3><span>score = slope of log density</span></div>
-        <canvas id="score-plot" role="img" aria-label="Expert score lines, their combination, and the score required by ordinary reverse diffusion"></canvas>
         <div class="probe"><label for="probe">Probe point x <output id="probe-out">1.00</output></label><input id="probe" type="range" min="-7" max="7" step="0.01" value="1"></div>
-        <div class="score-readout" aria-label="Scores at the probe point"><div class="teal">sA(x,t)<strong id="score-A"></strong></div><div class="coral">sB(x,t)<strong id="score-B"></strong></div><div class="violet"><span id="combined-score-label">sA + sB</span><strong id="score-combined"></strong></div><div>Needed by reverse diffusion<strong id="score-required"></strong></div></div>
+        <div class="plot-title"><h3>Scores through time</h3><span id="score-time-caption">At the same x = 1.00</span></div>
+        <canvas id="score-timeline" role="img" aria-label="Combined expert score and the correct reverse-diffusion score across noise levels, at a fixed probe point x"></canvas>
+        <div class="range-labels time-endpoints"><span>t = 0: clean</span><span>t = 1: fully noisy</span></div>
+        <div class="legend"><span class="key violet">Combined expert score</span><span class="key navy dashed">Correct reverse-diffusion score</span></div>
+        <p class="tiny">Dots show intermediate times. The vertical line marks your current t. Click or drag this chart to select t.</p>
+        <div class="score-readout" aria-label="Score comparison at the selected x and t"><div class="violet"><span id="combined-score-label">sA + sB</span><strong id="score-combined"></strong></div><div>Needed by reverse diffusion<strong id="score-required"></strong></div></div>
       </div>
     </div>
     <div id="target-warning" class="warning" role="status" hidden></div>
