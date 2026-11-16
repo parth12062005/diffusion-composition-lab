@@ -3,6 +3,18 @@
 A buildless website for Krishiv and Parth's paper presentation.
 No package installation or training is needed to use the interactive demo.
 
+## Presentation structure
+
+The 15 sections cover the paper, its evidence and our experiment:
+introduction, motivation, score background, guidance, composition operators,
+the original blue-dot examples, the score mismatch, the Gaussian mesh,
+annealed MCMC, the Langevin demo, energy models, published evidence,
+our MNIST setup, our pending results, and takeaways.
+
+Krishiv presents sections 1-8. Parth presents sections 9-15. Each section
+has speaker notes and source links. Paper results and our placeholders
+are explicitly separated.
+
 ## Run locally
 
 From this directory:
@@ -17,7 +29,7 @@ double-clicking index.html, because the page loads JavaScript modules.
 ## Present
 
 Click Present. Use Left and Right to move between sections and Escape to exit.
-Speaker notes are available from the footer in the ordinary scrolling view.
+Use the section menu to jump. Notes are available in the header in both views.
 The full two-person script is dist/speech_draft.md.
 
 ## Interactions
@@ -53,5 +65,10 @@ Paper: https://proceedings.mlr.press/v202/du23a.html
 Full text: https://arxiv.org/html/2302.11552v6
 The class split and Gaussian lab are project adaptations.
 The two PNG illustrations are AI-generated concept art, not experiment results.
+The blue-dot examples are original figures by Du et al. They include products,
+mixtures, negation and failure cases. See the source links in the figure gallery.
+paper-2d.png comes from the authors' project page. negation_more.png,
+rebuttal_mixture.png and rebuttal_failure_v2.png come from arXiv v6.
+The cube-position values in the paper-evidence section come from Table 2.
 The equations use native MathML for rendered mathematical notation.
 No external math library or network request is needed to render them.
