@@ -1,0 +1,119 @@
+[
+  {
+    "id": "tables",
+    "title": "Tables AND red objects",
+    "short": "Modular composition",
+    "image": "assets/results/tables-and-red.png",
+    "size": [
+      1393,
+      1318
+    ],
+    "x": 239,
+    "w": 1145,
+    "h": 185,
+    "ys": [
+      40,
+      257,
+      474,
+      691,
+      908,
+      1125
+    ],
+    "columns": 6,
+    "labels": [
+      "Expert A alone: tables in different colours",
+      "Expert B alone: red objects",
+      "AND: naive reverse diffusion",
+      "AND: annealed ULA",
+      "OR: energy-softmax row",
+      "Tables AND NOT red"
+    ],
+    "notes": [
+      "The first expert supplies table shape and several colours.",
+      "The second expert supplies red appearance across several shapes.",
+      "Most displayed outputs combine red and table shape; one is nearly blank.",
+      "All six displayed outputs are recognizable red table-like objects.",
+      "The displayed samples are dominated by red tables. This grid does not show the full diversity expected from an OR mixture.",
+      "The outputs change to cyan/green table-like shapes, with some distortion and strong saturation."
+    ],
+    "setup": "Two separately trained experts: one on rendered tables in several colours, one on red objects. Their shared preference is a red table.",
+    "method": "Both AND rows use 0.5sA + 0.5sB, as labelled in the supplied grid. This corresponds to a tempered target proportional to sqrt(pA pB), not the full product used in the Gaussian teaching example.",
+    "finding": "The annealed ULA row is more consistent in this displayed grid. The naive row already contains red tables, so the result supports a sample-quality comparison rather than an all-or-nothing success claim.",
+    "limit": "Six displayed samples per row are qualitative evidence. Training budgets, sampler settings, runtime, energy calibration and aggregate metrics were not supplied."
+  },
+  {
+    "id": "classifier",
+    "title": "Classifier conditioning",
+    "short": "Conditional generation",
+    "image": "assets/results/classifier-conditioning.png",
+    "size": [
+      1490,
+      653
+    ],
+    "x": 180,
+    "w": 1304,
+    "h": 118,
+    "ys": [
+      72,
+      224,
+      375,
+      527
+    ],
+    "columns": 10,
+    "labels": [
+      "Unconditional: guidance strength 0",
+      "Classifier-guided reverse diffusion",
+      "Classifier-guided ULA",
+      "Classifier-guided MALA"
+    ],
+    "notes": [
+      "Without guidance, the samples do not follow the requested digit columns.",
+      "Conditioning largely follows the target labels. Some shapes remain ambiguous, including the displayed target-5 sample.",
+      "The displayed row contains readable examples of the requested digits.",
+      "The supplied row is labelled Metropolis-adjusted MALA. Relative density or energy information is required to justify its acceptance step."
+    ],
+    "setup": "Requested labels run from 0 to 9. An unconditional digit model is compared with classifier-guided reverse sampling, ULA and a MALA-labelled run.",
+    "method": "The conditioning rule adds the noisy classifier gradient to the generative score. This is the paper's Section 5.3 / Equation 14 adapted to digits.",
+    "finding": "Conditioning visibly changes the outputs toward the requested labels. These single examples per target do not establish dataset-wide accuracy or a ranking of ULA and MALA.",
+    "limit": "The image does not include classifier accuracy, guidance strength for the conditional rows, runtime, acceptance rates or the energy implementation used by MALA."
+  },
+  {
+    "id": "t2i",
+    "title": "Text-to-image composition",
+    "short": "House AND red",
+    "image": "assets/results/text-to-image.png",
+    "size": [
+      1189,
+      1657
+    ],
+    "x": 247,
+    "w": 934,
+    "h": 177,
+    "ys": [
+      134,
+      469,
+      803,
+      1138,
+      1473
+    ],
+    "columns": 5,
+    "labels": [
+      "Prompt: house",
+      "Prompt: red",
+      "House AND red: naive score combination",
+      "House AND red: latent ULA",
+      "House AND red AND NOT trees: latent ULA"
+    ],
+    "notes": [
+      "Five source columns are labelled seeds 1 through 5.",
+      "The red prompt evokes red surfaces, clothing and people rather than a particular object category.",
+      "Several baseline samples already combine a house with red. Seed 2 is closer to a wall/window than a full house.",
+      "Latent ULA changes detail and scene layout. Several outputs retain both concepts; seed 2 remains door-like.",
+      "The scenes change again and several views have little visible vegetation. One output is interior-like, so preserving the desired scene remains a concern."
+    ],
+    "setup": "The supplied experiment uses Stable Diffusion v1.5. Five seed columns compare separate prompts, naive composition, latent ULA and a NOT-trees composition.",
+    "method": "This is a pretrained text-to-image reuse experiment. The figure alone does not specify prompt weights, guidance settings, a base-score correction or the latent update schedule.",
+    "finding": "The effect is mixed across seeds. The naive baseline is already strong in several columns, so this grid does not establish a universal advantage for latent ULA.",
+    "limit": "Prompt alignment scores, full prompt strings, matched compute and sampler logs were not supplied. Display labels below correct the source's stray references to tables; the original image is preserved."
+  }
+]

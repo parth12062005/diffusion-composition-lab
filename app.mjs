@@ -140,48 +140,6 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-// Result images and measurements stay in memory until explicitly exported.
-const slotLabels=['Expert A alone: 0 and 1','Expert B alone: 1 and 6','AND: reverse diffusion','AND: annealed Langevin','NOT: reverse diffusion','NOT: annealed Langevin'];
-const images=Array(6).fill(null);
-slotLabels.forEach((label,i)=>{
-  const container=document.createElement('div');container.className='result-slot';
-  const h=document.createElement('h4');h.textContent=label;
-  const frame=document.createElement('label');frame.className='upload-frame';frame.htmlFor='result-image-'+i;frame.id='result-frame-'+i;
-  const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp';input.id='result-image-'+i;
-  const remove=document.createElement('button');remove.type='button';remove.className='remove-image';remove.textContent='Remove image';remove.hidden=true;remove.id='remove-'+i;
-  input.addEventListener('change',async()=>{
-    const file=input.files?.[0];if(!file)return;
-    if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>4*1024*1024){$('results-status').textContent='Choose a PNG, JPEG or WebP image up to 4 MB.';input.value='';return;}
-    const reader=new FileReader();reader.onload=()=>{images[i]=String(reader.result);renderResultImage(i);$('results-status').textContent='Image added in this tab. Export results to save your work.';};reader.onerror=()=>{$('results-status').textContent='The image could not be read. Try another file.';};reader.readAsDataURL(file);
-  });
-  remove.addEventListener('click',()=>{images[i]=null;input.value='';renderResultImage(i);});
-  container.append(h,frame,input,remove);$('result-grids').append(container);renderResultImage(i);
-});
-function renderResultImage(i){
-  const target=$('result-frame-'+i);target.replaceChildren();
-  if(images[i]){const img=document.createElement('img');img.src=images[i];img.alt=slotLabels[i]+' experimental sample grid';target.append(img);}else{const strong=document.createElement('strong');strong.textContent='Results pending';const span=document.createElement('span');span.textContent='Click to add your sample grid';target.append(strong,span);}
-  $('remove-'+i).hidden=!images[i];
-}
-const metricLabels=['Target digit (%)','Outside A: not 0 or 1 (%)','Unreadable, manual (%)','Sampling time (s)','Expert evaluations'];
-metricLabels.forEach((label,r)=>{const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=label;tr.append(th);for(let c=0;c<4;c++){const td=document.createElement('td'),input=document.createElement('input');input.placeholder='Pending';input.id=`metric-${r}-${c}`;input.setAttribute('aria-label',`${label}, ${['AND reverse','AND Langevin','NOT reverse','NOT Langevin'][c]}`);input.inputMode='decimal';td.append(input);tr.append(td);}$('results-table').querySelector('tbody').append(tr);});
-function collectResults(){return {format:'diffusion-composition-results-v1',images,metrics:metricLabels.map((_,r)=>Array.from({length:4},(_,c)=>$(`metric-${r}-${c}`).value)),N:$('run-N').value,alpha:$('run-alpha').value,seeds:$('run-seeds').value,findings:$('findings').value};}
-$('export-results').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(collectResults(),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='diffusion-experiment-results.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);$('results-status').textContent='Results exported. Import this JSON file to restore images and measurements.';});
-$('import-results').addEventListener('change',async e=>{
-  const file=e.target.files?.[0];if(!file)return;
-  try{
-    if(file.size>40*1024*1024)throw Error('File too large.');
-    const data=JSON.parse(await file.text());
-    if(data.format!=='diffusion-composition-results-v1'||!Array.isArray(data.images)||data.images.length!==6||!Array.isArray(data.metrics)||data.metrics.length!==5||data.metrics.some(r=>!Array.isArray(r)||r.length!==4))throw Error('This is not an exported results file.');
-    if(data.images.some(v=>v!==null&&(typeof v!=='string'||v.length>6*1024*1024||!/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=\r\n]+$/.test(v))))throw Error('An image has an unsupported format.');
-    if(data.metrics.some(r=>r.some(v=>typeof v!=='string'||v.length>100)))throw Error('Invalid measurement values.');
-    for(const k of ['N','alpha','seeds','findings'])if(typeof data[k]!=='string'||data[k].length>20000)throw Error('Invalid results text.');
-    data.images.forEach((v,i)=>{images[i]=v;renderResultImage(i);});
-    data.metrics.forEach((row,r)=>row.forEach((v,c)=>{$(`metric-${r}-${c}`).value=v;}));
-    $('run-N').value=data.N;$('run-alpha').value=data.alpha;$('run-seeds').value=data.seeds;$('findings').value=data.findings;
-    $('results-status').textContent='Your result images and measurements are restored in this tab.';
-  }catch(error){$('results-status').textContent='Could not import: '+error.message;}finally{e.target.value='';}
-});
-
 function showPaperFigure(key){
   const figure=paperFigures[key];
   $('paper-example-image').src=figure.file;$('paper-example-image').alt=figure.alt;
